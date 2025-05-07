@@ -4,7 +4,7 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import KeyboardButton
+from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 
 from questions import questions
 
@@ -34,16 +34,27 @@ ADVICE = {
         "помогает тебе выстраивать глубокие, живые и осознанные связи. Сохраняй этот баланс — он редкость и большая сила."
     )
 }
+
+
 # Состояния бота
 class Quiz(StatesGroup):
+    waiting_for_gender = State()  # Новое состояние для выбора пола
     in_progress = State()
     waiting_for_answer = State()
 
 
+# Хранение данных пользователей
+user_data = {}  # user_id: {"scores": {"top": 0, "heart": 0, "sex": 0}, "gender": None}
 
-
-# Хранение баллов в памяти (user_id: {"top": 0, "heart": 0, "sex": 0})
-user_scores = {}
+# Клавиатура для выбора пола
+gender_keyboard = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="Мужчина"), KeyboardButton(text="Женщина")],
+        [KeyboardButton(text="Предпочитаю не указывать")]
+    ],
+    resize_keyboard=True,
+    one_time_keyboard=True
+)
 
 
 # /start
@@ -51,23 +62,35 @@ user_scores = {}
 async def start(message: types.Message, state: FSMContext):
     user_name = message.from_user.full_name
     await message.answer(
-        f"👋 Привет {user_name}! \n\n"
+        f"👋 Привет {user_name}!\n\n"
         f"Отношения становятся по-настоящему живыми и гармоничными, \n"
         f"когда соединяются три центра — ценности, чувства и тело.\n"
         f"Этот короткий тест поможет тебе понять,\n"
-        f"на каком уровне ты выбираешь партнёра и почему отношения могут не складываться\n"
-        f"Ответь на 9 вопросов, чтобы узнать свой доминирующий центр.",
-        reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[[
-            types.InlineKeyboardButton(text="Начать тест", callback_data="start_quiz")
-        ]])
+        f"на каком уровне ты выбираешь партнёра и почему отношения могут не складываться\n\n"
+        f"Сначала укажи свой пол:",
+        reply_markup=gender_keyboard
+    )
+    await state.set_state(Quiz.waiting_for_gender)
+
+
+# Обработка выбора пола
+@dp.message(Quiz.waiting_for_gender)
+async def process_gender(message: types.Message, state: FSMContext):
+    gender = message.text
+    user_id = message.from_user.id
+
+    # Сохраняем пол пользователя
+    user_data[user_id] = {
+        "scores": {"top": 0, "heart": 0, "sex": 0},
+        "gender": gender
+    }
+
+    await message.answer(
+        f"Отлично! Теперь ответь на 9 вопросов, чтобы узнать свой доминирующий центр.",
+        reply_markup=types.ReplyKeyboardRemove()  # Убираем клавиатуру
     )
 
-
-# Начало теста
-@dp.callback_query(lambda c: c.data == "start_quiz")
-async def start_quiz(callback: types.CallbackQuery, state: FSMContext):
-    user_id = callback.from_user.id
-    user_scores[user_id] = {"top": 0, "heart": 0, "sex": 0}
+    # Запускаем тест
     await state.set_state(Quiz.in_progress)
     await send_question(user_id, 0)
 
@@ -87,7 +110,9 @@ async def send_question(user_id: int, question_id: int):
 async def handle_answer(callback: types.CallbackQuery, state: FSMContext):
     _, question_id, center = callback.data.split("_")
     user_id = callback.from_user.id
-    user_scores[user_id][center] += 1  # +1 балл выбранному центру
+
+    # Добавляем балл к выбранному центру
+    user_data[user_id]["scores"][center] += 1
 
     # Переход к следующему вопросу или завершение
     next_question_id = int(question_id) + 1
@@ -100,11 +125,14 @@ async def handle_answer(callback: types.CallbackQuery, state: FSMContext):
 
 # Показ результата
 async def show_result(user_id: int):
-    scores = user_scores[user_id]
+    data = user_data[user_id]
+    scores = data["scores"]
+    gender = data.get("gender", "не указан")
+
     max_center = max(scores, key=scores.get)
     min_center = min(scores, key=scores.get)
 
-    # Проверяем, сбалансированы ли все три центра
+    # Проверяем баланс
     all_values = list(scores.values())
     if all(v == all_values[0] for v in all_values):
         advice_type = "balance"
@@ -112,17 +140,14 @@ async def show_result(user_id: int):
         advice_type = max_center
 
     result_text = (
-        f"🎉 \033[1mТвой результат:\033[0m\n\n"
+        f"🎉 Твой результат ({gender}):\n\n"
         f"🧠 Верхний центр: {scores['top']}\n"
         f"💚 Сердечный центр: {scores['heart']}\n"
         f"🔥 Сексуальный центр: {scores['sex']}\n\n"
-        # f"🔍 Доминирует: {max_center}\n"
-        # f"❗ Слабый: {min_center}"
         f"{ADVICE[advice_type]}\n\n"
-        
-        
+
         f'🧭 Хочешь понять, как развить недостающие центры и притянуть настоящие отношения?\n'
-        f'📲 Подпишись на канал: «Вместе» https://t.me/unionlevels  — там о любви, энергии и взрослом партнёрстве.\n\n'
+        f'📲 Подпишись на канал: «Вместе» https://t.me/unionlevels — там о любви, энергии и взрослом партнёрстве.\n\n'
         f'А так же:\n'
         f'🌿 Присоединяйся к ретриту «ВМЕСТЕ» под Петербургом, \n'
         f'27 июня 2025 — три дня погружения в сердце, тело и дух отношений.'
