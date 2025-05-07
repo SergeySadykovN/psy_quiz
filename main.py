@@ -11,6 +11,8 @@ from questions import questions
 bot = Bot(token=os.getenv("BOT_TOKEN"))
 dp = Dispatcher()
 
+ADMIN_ID = 966780974
+
 # Советы для разных типов результатов
 ADVICE = {
     "top": (
@@ -50,7 +52,6 @@ user_data = {}  # user_id: {"scores": {"top": 0, "heart": 0, "sex": 0}, "gender"
 gender_keyboard = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="Мужчина"), KeyboardButton(text="Женщина")],
-        [KeyboardButton(text="Предпочитаю не указывать")]
     ],
     resize_keyboard=True,
     one_time_keyboard=True
@@ -130,7 +131,7 @@ async def show_result(user_id: int):
     gender = data.get("gender", "не указан")
 
     max_center = max(scores, key=scores.get)
-    min_center = min(scores, key=scores.get)
+    # min_center = min(scores, key=scores.get)
 
     # Проверяем баланс
     all_values = list(scores.values())
@@ -160,6 +161,17 @@ async def show_result(user_id: int):
             types.InlineKeyboardButton(text="Подписаться на канал", url="https://t.me/unionlevels"),
         ]])
     )
+    # Отправка админу
+    admin_text = (
+        f"📝 Пользователь {user_id} ({gender}) прошёл тест.\n"
+        f"Результаты:\n"
+        f"Верхний: {scores['top']}, Сердечный: {scores['heart']}, Сексуальный: {scores['sex']}.\n"
+        f"Доминирующий центр: {advice_type.upper()}"
+    )
+    await bot.send_message(ADMIN_ID, admin_text)
+
+
+
 
 
 # Запуск бота
