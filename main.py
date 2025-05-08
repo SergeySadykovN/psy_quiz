@@ -1,15 +1,20 @@
 import os
-
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
-
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
+from aiohttp import web
 from questions import questions
 
+# Инициализация бота и диспетчера
 bot = Bot(token=os.getenv("BOT_TOKEN"))
 dp = Dispatcher()
+
+# Конфигурация Webhook
+WEBHOOK_PATH = f"/webhook/{os.getenv('BOT_TOKEN')}"
+WEBHOOK_URL = os.getenv("WEBHOOK_URL") + WEBHOOK_PATH
 
 ADMIN_ID = 966780974
 
@@ -40,7 +45,7 @@ ADVICE = {
 
 # Состояния бота
 class Quiz(StatesGroup):
-    waiting_for_gender = State()  # Новое состояние для выбора пола
+    waiting_for_gender = State()
     in_progress = State()
     waiting_for_answer = State()
 
@@ -58,7 +63,8 @@ gender_keyboard = ReplyKeyboardMarkup(
 )
 
 
-# /start
+# ========== Обработчики команд и сообщений ==========
+
 @dp.message(CommandStart())
 async def start(message: types.Message, state: FSMContext):
     user_name = message.from_user.full_name
@@ -74,13 +80,11 @@ async def start(message: types.Message, state: FSMContext):
     await state.set_state(Quiz.waiting_for_gender)
 
 
-# Обработка выбора пола
 @dp.message(Quiz.waiting_for_gender)
 async def process_gender(message: types.Message, state: FSMContext):
     gender = message.text
     user_id = message.from_user.id
 
-    # Сохраняем пол пользователя
     user_data[user_id] = {
         "scores": {"top": 0, "heart": 0, "sex": 0},
         "gender": gender
@@ -88,16 +92,15 @@ async def process_gender(message: types.Message, state: FSMContext):
 
     await message.answer(
         f"Отлично! Теперь ответь на 9 вопросов, чтобы узнать свой доминирующий центр.",
-        reply_markup=types.ReplyKeyboardRemove()  # Убираем клавиатуру
+        reply_markup=types.ReplyKeyboardRemove()
     )
 
-    # Запускаем тест
     await state.set_state(Quiz.in_progress)
     await send_question(user_id, 0)
 
 
-# Отправка вопроса
 async def send_question(user_id: int, question_id: int):
+    from questions import questions  # Импортируем здесь, чтобы избежать циклического импорта
     question = questions[question_id]
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text=opt["text"], callback_data=f"answer_{question_id}_{opt['center']}")]
@@ -106,16 +109,13 @@ async def send_question(user_id: int, question_id: int):
     await bot.send_message(user_id, question["text"], reply_markup=keyboard)
 
 
-# Обработка ответа
 @dp.callback_query(lambda c: c.data.startswith("answer_"))
 async def handle_answer(callback: types.CallbackQuery, state: FSMContext):
     _, question_id, center = callback.data.split("_")
     user_id = callback.from_user.id
 
-    # Добавляем балл к выбранному центру
     user_data[user_id]["scores"][center] += 1
 
-    # Переход к следующему вопросу или завершение
     next_question_id = int(question_id) + 1
     if next_question_id < len(questions):
         await send_question(user_id, next_question_id)
@@ -124,16 +124,12 @@ async def handle_answer(callback: types.CallbackQuery, state: FSMContext):
         await state.clear()
 
 
-# Показ результата
 async def show_result(user_id: int):
     data = user_data[user_id]
     scores = data["scores"]
     gender = data.get("gender", "не указан")
 
     max_center = max(scores, key=scores.get)
-    # min_center = min(scores, key=scores.get)
-
-    # Проверяем баланс
     all_values = list(scores.values())
     if all(v == all_values[0] for v in all_values):
         advice_type = "balance"
@@ -146,7 +142,6 @@ async def show_result(user_id: int):
         f"💚 Сердечный центр: {scores['heart']}\n"
         f"🔥 Сексуальный центр: {scores['sex']}\n\n"
         f"{ADVICE[advice_type]}\n\n"
-
         f'🧭 Хочешь понять, как развить недостающие центры и притянуть настоящие отношения?\n'
         f'📲 Подпишись на канал: «Вместе» https://t.me/unionlevels — там о любви, энергии и взрослом партнёрстве.\n\n'
         f'А так же:\n'
@@ -161,7 +156,7 @@ async def show_result(user_id: int):
             types.InlineKeyboardButton(text="Подписаться на канал", url="https://t.me/unionlevels"),
         ]])
     )
-    # Отправка админу
+
     admin_text = (
         f"📝 Пользователь {user_id} ({gender}) прошёл тест.\n"
         f"Результаты:\n"
@@ -171,9 +166,42 @@ async def show_result(user_id: int):
     await bot.send_message(ADMIN_ID, admin_text)
 
 
+# ========== Настройка Webhook ==========
+
+async def on_startup(bot: Bot):
+    await bot.set_webhook(WEBHOOK_URL)
+    print(f"Webhook установлен на {WEBHOOK_URL}")
 
 
+async def on_shutdown(bot: Bot):
+    await bot.delete_webhook()
+    print("Webhook удален")
 
-# Запуск бота
+
+# Создаем aiohttp приложение
+app = web.Application()
+app["bot"] = bot
+
+# Регистрируем обработчик webhook
+webhook_requests_handler = SimpleRequestHandler(
+    dispatcher=dp,
+    bot=bot,
+)
+webhook_requests_handler.register(app, path=WEBHOOK_PATH)
+setup_application(app, dp, bot=bot)
+
+# ========== Запуск приложения ==========
+
 if __name__ == "__main__":
-    dp.run_polling(bot)
+    from aiogram.enums import ParseMode
+
+    # Настройка бота
+    dp.startup.register(on_startup)
+    dp.shutdown.register(on_shutdown)
+
+    # Запускаем веб-сервер
+    web.run_app(
+        app,
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", 8080)),  # Render автоматически устанавливает переменную PORT
+    )
