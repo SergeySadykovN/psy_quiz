@@ -26,7 +26,8 @@ WEBHOOK_PATH = f"/webhook/{os.getenv('BOT_TOKEN')}"
 WEBHOOK_URL = base_webhook_url + WEBHOOK_PATH
 
 ADMIN_ID = 966780974
-CHANNEL_USERNAME = "@andbeginagain"
+# CHANNEL_USERNAME = "@andbeginagain"
+CHANNEL_USERNAME = "@AndrewMoriz_psy20"
 
 # Советы для разных типов результатов
 ADVICE = {
@@ -135,7 +136,7 @@ async def handle_answer(callback: types.CallbackQuery, state: FSMContext):
 async def prompt_subscription(callback: types.CallbackQuery):
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text="✅ Проверить подписку", callback_data="check_subscription")],
-        [types.InlineKeyboardButton(text="📲 Перейти в канал", url="https://t.me/andbeginagain")]
+        [types.InlineKeyboardButton(text="📲 Перейти в канал", url="https://t.me/AndrewMoriz_psy20")]
     ])
     await callback.message.answer(
         "Чтобы увидеть результат, подпишись на канал «ВМЕСТЕ»: https://t.me/andbeginagain\n"
@@ -179,7 +180,7 @@ async def show_result(user_id: int):
         user_id,
         result_text,
         reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="Подписаться на канал", url="https://t.me/psy_help24")]
+            [types.InlineKeyboardButton(text="Подписаться на канал", url="https://t.me/andbeginagain")]
         ])
     )
 
