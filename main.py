@@ -26,8 +26,7 @@ WEBHOOK_PATH = f"/webhook/{os.getenv('BOT_TOKEN')}"
 WEBHOOK_URL = base_webhook_url + WEBHOOK_PATH
 
 ADMIN_ID = 966780974
-# CHANNEL_USERNAME = "@andbeginagain"
-CHANNEL_USERNAME = "@AndrewMoriz_psy20"
+CHANNEL_USERNAME = "@andbeginagain"
 
 # Советы для разных типов результатов
 ADVICE = {
@@ -136,10 +135,10 @@ async def handle_answer(callback: types.CallbackQuery, state: FSMContext):
 async def prompt_subscription(callback: types.CallbackQuery):
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text="✅ Проверить подписку", callback_data="check_subscription")],
-        [types.InlineKeyboardButton(text="📲 Перейти в канал", url="https://t.me/AndrewMoriz_psy20")]
+        [types.InlineKeyboardButton(text="📲 Перейти в канал", url="https://t.me/andbeginagain")]
     ])
     await callback.message.answer(
-        "Чтобы увидеть результат, подпишись на канал «ВМЕСТЕ»: https://t.me/andbeginagain\n"
+        "Чтобы увидеть результат, подпишись на канал: https://t.me/andbeginagain\n"
         "После подписки нажми кнопку ниже:",
         reply_markup=keyboard
     )
@@ -172,7 +171,7 @@ async def show_result(user_id: int):
         f"💚 Сердечный центр: {scores['heart']}\n"
         f"🔥 Сексуальный центр: {scores['sex']}\n\n"
         f"{ADVICE[advice_type]}\n\n"
-        f"🧭 Хочешь развить недостающие центры? Подпишись на канал: https://t.me/unionlevels\n\n"
+        f"🧭 Хочешь развить недостающие центры? Приходи в канал: https://t.me/andbeginagain\n\n"
         f"🌿 Присоединяйся к ретриту «ВМЕСТЕ» под Петербургом — 27 июня 2025!"
     )
 
