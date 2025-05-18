@@ -138,8 +138,8 @@ async def prompt_subscription(callback: types.CallbackQuery):
         [types.InlineKeyboardButton(text="📲 Перейти в канал", url="https://t.me/andbeginagain")]
     ])
     await callback.message.answer(
-        "Чтобы увидеть результат, подпишись на канал: https://t.me/andbeginagain\n"
-        "После подписки нажми кнопку ниже:",
+        "Чтобы увидеть результат, подпишись на канал: https://t.me/andbeginagain\n\n"
+        "После подписки нажми кнопку 'ПРОВЕРИТЬ ПОДПИСКУ' ниже:",
         reply_markup=keyboard
     )
 
