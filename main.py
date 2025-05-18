@@ -179,7 +179,7 @@ async def show_result(user_id: int):
         user_id,
         result_text,
         reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="Подписаться на канал", url="https://t.me/andbeginagain")]
+            [types.InlineKeyboardButton(text="Подписаться на канал", url="https://t.me/psy_help24")]
         ])
     )
 
