@@ -10,7 +10,6 @@ from questions import questions
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 
-
 # Инициализация бота и диспетчера
 bot = Bot(
     token=os.getenv("BOT_TOKEN"),
@@ -19,8 +18,11 @@ bot = Bot(
 dp = Dispatcher()
 
 # Конфигурация Webhook
+base_webhook_url = os.getenv("WEBHOOK_URL")
+if not base_webhook_url:
+    raise RuntimeError("Переменная окружения WEBHOOK_URL не установлена")
 WEBHOOK_PATH = f"/webhook/{os.getenv('BOT_TOKEN')}"
-WEBHOOK_URL = os.getenv("WEBHOOK_URL") + WEBHOOK_PATH
+WEBHOOK_URL = base_webhook_url + WEBHOOK_PATH
 
 ADMIN_ID = 966780974
 CHANNEL_USERNAME = "@andbeginagain"
@@ -67,13 +69,23 @@ gender_keyboard = ReplyKeyboardMarkup(
 
 @dp.message(CommandStart())
 async def start(message: types.Message, state: FSMContext):
-    user_name = message.from_user.full_name
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="🚀 Начать тест", callback_data="start_quiz")]
+    ])
     await message.answer(
-        f"👋 Привет {user_name}!\n\n"
-        f"Добро пожаловать в проект 'ВМЕСТЕ'.\n"
-        f"💚 Отношения становятся живыми и гармоничными, когда соединяются три центра — разум, чувства и тело.\n"
-        f"🚀 Пройди короткий тест, чтобы понять, как ты выбираешь партнёра.\n\n"
-        f"Сначала укажи свой пол:",
+        f"👋 Привет, {message.from_user.full_name}!\n\n"
+        f"👩‍❤️‍👨Добро пожаловать в проект о любви и крепких отношениях 'ВМЕСТЕ' \n"
+        f"💚Отношения становятся по-настоящему живыми и гармоничными,"
+        f"когда соединяются три центра — общие ценности, настоящие чувства и тело. \n\n"
+        f"🚀Мы предлагаем тебе пройти короткий тест, который поможет понять, на каком центре ты выбираешь партнёра и почему  отношения не складывваются, или ты все никак не можешь найти свою вторую половинку",
+        reply_markup=keyboard
+    )
+    await state.clear()
+
+@dp.callback_query(lambda c: c.data == "start_quiz")
+async def quiz_entry(callback: types.CallbackQuery, state: FSMContext):
+    await callback.message.answer(
+        "Сначала укажи свой пол:",
         reply_markup=gender_keyboard
     )
     await state.set_state(Quiz.waiting_for_gender)
@@ -139,8 +151,9 @@ async def check_subscription(callback: types.CallbackQuery):
             await show_result(user_id)
         else:
             await callback.message.answer("❗️Ты пока не подписан. Подпишись и попробуй снова.")
-    except Exception:
+    except Exception as e:
         await callback.message.answer("⚠️ Не удалось проверить подписку. Попробуй позже.")
+        await bot.send_message(ADMIN_ID, f"Ошибка при проверке подписки у пользователя {user_id}: {e}")
 
 async def show_result(user_id: int):
     data = user_data[user_id]
